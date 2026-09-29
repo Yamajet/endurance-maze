@@ -19,7 +19,7 @@ const modes=[
 ];
 const storageKey='endurance-maze-unlocks-v1';
 let unlockLevel=0;try{unlockLevel=clamp(Number(localStorage.getItem(storageKey))||0,0,modes.length)}catch(e){}
-let audio=null,active=false,holding=false,bpm=60,startBpm=60,stageNo=1,score=0,enemyMode='none',barStart=0,last=0;
+let audio=null,active=false,standby=false,holding=false,bpm=60,startBpm=60,stageNo=1,score=0,enemyMode='none',barStart=0,last=0;
 let board,nextBoard,player={x:2,y:14},target={x:2,y:14},cleared=false,beatSeen=-1,bumpAt=-1,bgmSource=null,explosionSource=null,samples={},toastTimer;
 function mode(){return modes.find(m=>m.key===enemyMode)||modes[0]}
 function showModes(){document.querySelectorAll('[data-unlock]').forEach(label=>{label.hidden=Number(label.dataset.unlock)>unlockLevel});const selected=document.querySelector('input[name="enemyMode"]:checked');if(!selected||selected.closest('label').hidden)document.querySelector('input[name="enemyMode"][value="none"]').checked=true}
@@ -96,6 +96,11 @@ function moveGoal(dt){if(enemyMode!=='goalMove')return;const goal=board.goals[0]
   if(canPlaceGoal(board,goal.x,goal.y+goal.vy*s))goal.y+=goal.vy*s;else goal.vy=-goal.vy}
 function goalTouched(pos){if(enemyMode==='goalTiny')return Math.hypot(player.x-pos.x,player.y-pos.y)<1.0625;return Math.abs(player.x-pos.x)<2&&Math.abs(player.y-pos.y)<2}
 function update(dt,t){if(!active)return;let elapsed=t-barStart,bar=240/bpm,beat=60/bpm;
+  if(standby){
+    if(elapsed>=bar){standby=false;stageNo=1;barStart+=bar;player={...board.spawn};target={...player};holding=false;beatSeen=-1;el('stage').textContent=stageNo;el('message').textContent='マウス／タップを押したまま操作';playBar()}
+    else{el('time').textContent=Math.max(0,bar-elapsed).toFixed(2)+'s';return}
+    elapsed=t-barStart;
+  }
   if(elapsed>=3*beat&&!nextBoard)nextBoard=makeBoard();
   if(elapsed>=bar){if(!cleared){fail('時間切れ');return}stageNo++;bpm++;board=nextBoard||makeBoard();nextBoard=null;cleared=false;barStart+=bar;elapsed=t-barStart;player={...board.spawn};target={...player};holding=false;beatSeen=-1;el('stage').textContent=stageNo;el('bpm').textContent=bpm;el('message').textContent='マウス／タップを押したまま操作';playBar()}
   moveGoal(dt);
@@ -123,18 +128,20 @@ function drawBoard(b,t,flash,pulse){g.fillStyle='#36527b';g.fillRect(0,0,768,768
     for(let k=0;k<rings;k++){g.strokeStyle=`hsl(${(t*140+k*33)%360} 100% 65%)`;g.lineWidth=enemyMode==='goalTiny'?1:4;g.beginPath();g.arc(x,y,Math.max(1,r-k*(enemyMode==='goalTiny'?1:3.4)),t*2+k*.55,t*2+k*.55+Math.PI*1.55);g.stroke()}
     g.fillStyle='#080719';g.beginPath();g.arc(x,y,enemyMode==='goalTiny'?1:9,0,TAU);g.fill()}
   g.fillStyle='#7de7ef';g.fillRect((b.spawn.x-.9)*T,(b.spawn.y-.6)*T,4,38);g.fillStyle='#fff9aa';g.font='bold 18px sans-serif';g.fillText('START',clamp((b.spawn.x-.7)*T,54,674),(b.spawn.y+.2)*T)}
+function drawStandby(elapsed,beat){const count=4-clamp(Math.floor(elapsed/beat),0,3);g.fillStyle='#111c3b';g.fillRect(0,0,768,768);g.textAlign='center';g.textBaseline='middle';g.fillStyle='#ffe176';g.shadowColor='#ffe176';g.shadowBlur=40;g.font='900 300px ui-monospace,monospace';g.fillText(count,384,389);g.shadowBlur=0;g.textAlign='start';g.textBaseline='alphabetic'}
 function render(t){const elapsed=active?t-barStart:0,beat=60/bpm,phase=elapsed%beat,flash=active?Math.pow(Math.max(0,1-phase/.15),2):0,pulseDuration=Math.min(.27,beat*.65),pulse=active&&elapsed<pulseDuration?Math.sin(Math.PI*elapsed/pulseDuration):0;
-  g.clearRect(0,0,768,768);if(board){drawBoard(board,t,flash,pulse);if(active&&elapsed>=3*beat&&nextBoard){const u=clamp((elapsed-3*beat)/beat,0,1),edge=768*Math.pow(u,4);g.save();g.beginPath();g.rect(0,0,edge,768);g.clip();drawBoard(nextBoard,t,flash,pulse);g.restore();g.fillStyle='#f8e6a2';g.fillRect(edge-3,0,6,768);g.fillStyle='#fff9';g.fillRect(edge-7,0,2,768)}}
-  if(pulse){g.strokeStyle=`rgba(255,237,139,${pulse*.7})`;g.lineWidth=8+pulse*18;g.strokeRect(24,24,720,720)}
-  const x=player.x*T,y=player.y*T;g.fillStyle='#141a35';g.beginPath();g.arc(x,y,48,0,TAU);g.fill();g.strokeStyle='#ffe884';g.lineWidth=4;g.stroke();g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.font='900 58px "Yu Gothic",system-ui';g.fillText('俺',x,y+3);g.textAlign='start';g.textBaseline='alphabetic';requestAnimationFrame(frame)}
+  g.clearRect(0,0,768,768);if(standby){drawStandby(elapsed,beat);if(elapsed>=3*beat){const u=clamp((elapsed-3*beat)/beat,0,1),edge=768*Math.pow(u,4);g.save();g.beginPath();g.rect(0,0,edge,768);g.clip();drawBoard(board,t,flash,pulse);g.restore();g.fillStyle='#f8e6a2';g.fillRect(edge-3,0,6,768);g.fillStyle='#fff9';g.fillRect(edge-7,0,2,768)}}
+  else if(board){drawBoard(board,t,flash,pulse);if(active&&elapsed>=3*beat&&nextBoard){const u=clamp((elapsed-3*beat)/beat,0,1),edge=768*Math.pow(u,4);g.save();g.beginPath();g.rect(0,0,edge,768);g.clip();drawBoard(nextBoard,t,flash,pulse);g.restore();g.fillStyle='#f8e6a2';g.fillRect(edge-3,0,6,768);g.fillStyle='#fff9';g.fillRect(edge-7,0,2,768)}}
+  if(pulse&&!standby){g.strokeStyle=`rgba(255,237,139,${pulse*.7})`;g.lineWidth=8+pulse*18;g.strokeRect(24,24,720,720)}
+  if(!standby){const x=player.x*T,y=player.y*T;g.fillStyle='#141a35';g.beginPath();g.arc(x,y,48,0,TAU);g.fill();g.strokeStyle='#ffe884';g.lineWidth=4;g.stroke();g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.font='900 58px "Yu Gothic",system-ui';g.fillText('俺',x,y+3);g.textAlign='start';g.textBaseline='alphabetic'}requestAnimationFrame(frame)}
 function frame(ms){const t=audio?audio.currentTime:ms/1000,dt=Math.min(.05,Math.max(0,t-last));last=t;update(dt,t);render(t)}
 function point(ev){const r=c.getBoundingClientRect();return {x:clamp((ev.clientX-r.left)/r.width*16,2,14),y:clamp((ev.clientY-r.top)/r.height*16,2,14)}}
-c.addEventListener('pointerdown',ev=>{if(!active)return;ev.preventDefault();c.setPointerCapture(ev.pointerId);holding=true;target=point(ev)});c.addEventListener('pointermove',ev=>{if(holding)target=point(ev)});for(const event of ['pointerup','pointercancel','lostpointercapture'])c.addEventListener(event,()=>holding=false);
+c.addEventListener('pointerdown',ev=>{if(!active||standby)return;ev.preventDefault();c.setPointerCapture(ev.pointerId);holding=true;target=point(ev)});c.addEventListener('pointermove',ev=>{if(holding)target=point(ev)});for(const event of ['pointerup','pointercancel','lostpointercapture'])c.addEventListener(event,()=>holding=false);
 for(const b of document.querySelectorAll('[data-bpm]'))b.addEventListener('click',()=>{el('customBpm').value=b.dataset.bpm;selectPreset()});
 function selectPreset(){document.querySelectorAll('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===el('customBpm').value))}el('customBpm').addEventListener('input',selectPreset);selectPreset();showModes();
 el('start').addEventListener('click',async()=>{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();await audio.resume();if(!samples.bgm60)await loadAudio();if(explosionSource){try{explosionSource.stop()}catch(e){}explosionSource=null}
-  bpm=clamp(parseInt(el('customBpm').value,10)||60,30,300);enemyMode=document.querySelector('input[name="enemyMode"]:checked').value;el('customBpm').value=bpm;startBpm=bpm;stageNo=1;score=0;
-  board=makeBoard();nextBoard=null;player={...board.spawn};target={...player};active=true;cleared=false;holding=false;beatSeen=-1;barStart=audio.currentTime;last=barStart;
-  el('bpm').textContent=bpm;el('stage').textContent=stageNo;el('score').textContent=0;el('result').textContent='';el('share').classList.add('hidden');el('overlay').classList.add('hidden');el('unlockToast').hidden=true;playBar()});
+  bpm=clamp(parseInt(el('customBpm').value,10)||60,30,300);enemyMode=document.querySelector('input[name="enemyMode"]:checked').value;el('customBpm').value=bpm;startBpm=bpm;stageNo=0;score=0;
+  board=makeBoard();nextBoard=null;player={...board.spawn};target={...player};active=true;standby=true;cleared=false;holding=false;beatSeen=-1;barStart=audio.currentTime;last=barStart;
+  el('bpm').textContent=bpm;el('stage').textContent=stageNo;el('score').textContent=0;el('result').textContent='';el('message').textContent='スタンバイ';el('share').classList.add('hidden');el('overlay').classList.add('hidden');el('unlockToast').hidden=true;playBar()});
 board=makeBoard();requestAnimationFrame(frame);
 })();
