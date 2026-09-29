@@ -18,7 +18,7 @@ const modes=[
   {key:'swap',label:'俺とゴールがたまに逆になるし、敵も動く',mult:8},
   {key:'wallEnemy',label:'壁が敵になる',mult:4},
   {key:'wallCoin',label:'壁がコインになる',mult:1},
-  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:20},
+  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:15},
   {key:'coinEnemy',label:'コインも敵になるし動く',mult:50}
 ];
 const storageKey='endurance-maze-unlocks-v2';
