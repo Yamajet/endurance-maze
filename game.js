@@ -88,6 +88,36 @@ function makeBoard(){
       const p=candidates[rand(0,candidates.length-1)];goals.push({...p,axis:Math.random()<.5?'x':'y',phase:Math.random()*TAU,taken:false})
     }
   }
+  // Keep the maze walls unless a goal is isolated from the spawn. Open a broad
+  // branch to the protected route only for unreachable goals.
+  function goalReachable(goal){
+    const queue=[[Math.floor(spawn.x),Math.floor(spawn.y)]],seen=new Set(queue.map(([x,y])=>x+','+y));
+    const target=Math.floor(goal.x)+','+Math.floor(goal.y);
+    for(let i=0;i<queue.length;i++){
+      const [x,y]=queue[i];if(x+','+y===target)return true;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const xx=x+dx,yy=y+dy,key=xx+','+yy;
+        if(xx>=1&&xx<=14&&yy>=1&&yy<=14&&!grid[yy][xx]&&!seen.has(key)){seen.add(key);queue.push([xx,yy])}
+      }
+    }
+    return false;
+  }
+  if(['goalFlee','goalFleeFast','goalMany','goalManyMove','goalTwenty'].includes(enemyMode))for(const goal of goals){
+    if(goalReachable(goal))continue;
+    let closest=null,best=Infinity;
+    for(let i=1;i<waypoints.length;i++){
+      const a=waypoints[i-1],d=waypoints[i],dx=d.x-a.x,dy=d.y-a.y;
+      const u=clamp(((goal.x-a.x)*dx+(goal.y-a.y)*dy)/(dx*dx+dy*dy),0,1);
+      const p={x:a.x+u*dx,y:a.y+u*dy},dist=Math.hypot(goal.x-p.x,goal.y-p.y);
+      if(dist<best){best=dist;closest=p}
+    }
+    const steps=Math.max(1,Math.ceil(best*5));
+    for(let i=0;i<=steps;i++){
+      const x=closest.x+(goal.x-closest.x)*i/steps,y=closest.y+(goal.y-closest.y)*i/steps;
+      for(let yy=Math.max(1,Math.floor(y-1.4));yy<=Math.min(14,Math.ceil(y+1.4)-1);yy++)
+        for(let xx=Math.max(1,Math.floor(x-1.4));xx<=Math.min(14,Math.ceil(x+1.4)-1);xx++)grid[yy][xx]=0;
+    }
+  }
   if(enemyMode==='goalMove'){const angle=Math.random()*TAU;goals[0].vx=Math.cos(angle)*8.06;goals[0].vy=Math.sin(angle)*8.06}
   if(enemyMode==='wallCoin')for(let y=1;y<=14;y++)for(let x=1;x<=14;x++)if(grid[y][x]){grid[y][x]=0;coins.push({x:x+.5,y:y+.5})}
   if(enemyMode==='wallMorph')for(let y=1;y<=14;y++)for(let x=1;x<=14;x++)if(grid[y][x]){grid[y][x]=0;b.wallForms.push({x:x+.5,y:y+.5,kind:Math.random()<.5?'coin':'enemy',taken:false})}
