@@ -14,12 +14,12 @@ const modes=[
   {key:'goalTiny',label:'ゴールがすげー小さくなる',mult:7},
   {key:'goalMany',label:'ゴールがだいぶ増える',mult:2},
   {key:'goalManyMove',label:'ゴールがだいぶ増えるしすげー動く',mult:2},
-  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:20},
+  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:40},
   {key:'swap',label:'俺とゴールがたまに逆になるし、敵も動く',mult:8},
   {key:'wallEnemy',label:'壁が敵になる',mult:4},
   {key:'wallCoin',label:'壁がコインになる',mult:1},
-  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:50},
-  {key:'coinEnemy',label:'コインも敵になるし動く',mult:25}
+  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:20},
+  {key:'coinEnemy',label:'コインも敵になるし動く',mult:50}
 ];
 const storageKey='endurance-maze-unlocks-v2';
 let unlockLevel=0;try{
