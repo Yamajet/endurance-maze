@@ -9,16 +9,16 @@ const modes=[
   {key:'swell',label:'敵あり（動くし膨らむ）',mult:5},
   {key:'fast',label:'敵あり（すげー動く）',mult:8},
   {key:'goalMove',label:'ゴールがすげー動く',mult:1},
-  {key:'goalFlee',label:'ゴールがちょっと逃げる',mult:3},
-  {key:'goalFleeFast',label:'ゴールがマジで逃げる',mult:5},
-  {key:'goalTiny',label:'ゴールがすげー小さくなる',mult:4},
+  {key:'goalFlee',label:'ゴールがちょっと逃げる',mult:2},
+  {key:'goalFleeFast',label:'ゴールがマジで逃げる',mult:3},
+  {key:'goalTiny',label:'ゴールがすげー小さくなる',mult:7},
   {key:'goalMany',label:'ゴールがだいぶ増える',mult:2},
   {key:'goalManyMove',label:'ゴールがだいぶ増えるしすげー動く',mult:2},
-  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:6},
+  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:20},
   {key:'swap',label:'俺とゴールがたまに逆になるし、敵も動く',mult:8},
-  {key:'wallEnemy',label:'壁が敵になる',mult:5},
+  {key:'wallEnemy',label:'壁が敵になる',mult:4},
   {key:'wallCoin',label:'壁がコインになる',mult:1},
-  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:15},
+  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:50},
   {key:'coinEnemy',label:'コインも敵になるし動く',mult:25}
 ];
 const storageKey='endurance-maze-unlocks-v2';
@@ -68,6 +68,12 @@ function makeBoard(){
   const firstGoal=reverse?{x:2,y:14}:{x:14,y:gy+1};
   const goals=[{...firstGoal,axis:'x',phase:Math.random()*TAU,taken:false}];
   const b={grid,path,coins,enemies,goals,spawn,detour,reverse,waypoints,wallForms:[],wallTick:0};
+  if(enemyMode==='goalFlee'||enemyMode==='goalFleeFast'){
+    const candidates=[];for(let y=2;y<=13;y++)for(let x=2;x<=13;x++){
+      const p={x:x+.5,y:y+.5};if(canPlaceGoal(b,p.x,p.y)&&Math.hypot(p.x-spawn.x,p.y-spawn.y)>2.5&&coins.every(coin=>Math.hypot(coin.x-p.x,coin.y-p.y)>1.45))candidates.push(p)}
+    candidates.sort((a,d)=>Math.hypot(a.x-8,a.y-8)-Math.hypot(d.x-8,d.y-8));
+    if(candidates.length){goals[0].x=candidates[0].x;goals[0].y=candidates[0].y}
+  }
   if(['goalMany','goalManyMove','goalTwenty'].includes(enemyMode)){
     for(const [lo,hi] of [[3,5],[6,8],[9,11],[12,13]]){
       const candidates=[];for(let y=2;y<=13;y++)for(let x=lo;x<=hi;x++){
@@ -166,7 +172,7 @@ c.addEventListener('pointerdown',ev=>{if(!active||standby||cleared)return;ev.pre
 for(const b of document.querySelectorAll('[data-bpm]'))b.addEventListener('click',()=>{el('customBpm').value=b.dataset.bpm;selectPreset()});
 function selectPreset(){document.querySelectorAll('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===el('customBpm').value))}el('customBpm').addEventListener('input',selectPreset);selectPreset();showModes();
 el('start').addEventListener('click',async()=>{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();await audio.resume();if(!samples.bgm60)await loadAudio();if(explosionSource){try{explosionSource.stop()}catch(e){}explosionSource=null}
-  bpm=clamp(parseInt(el('customBpm').value,10)||60,30,300);enemyMode=document.querySelector('input[name="enemyMode"]:checked').value;el('customBpm').value=bpm;startBpm=bpm;stageNo=0;score=0;
+  bpm=clamp(parseInt(el('customBpm').value,10)||60,30,500);enemyMode=document.querySelector('input[name="enemyMode"]:checked').value;el('customBpm').value=bpm;startBpm=bpm;stageNo=0;score=0;
   board=makeBoard();nextBoard=null;player={...board.spawn};target={...player};active=true;standby=true;cleared=false;holding=false;beatSeen=-1;barStart=audio.currentTime;last=barStart;
   el('bpm').textContent=bpm;el('stage').textContent=stageNo;el('score').textContent=0;el('result').textContent='';el('message').textContent='スタンバイ';el('share').classList.add('hidden');el('overlay').classList.add('hidden');el('unlockToast').hidden=true;playBar()});
 board=makeBoard();requestAnimationFrame(frame);
