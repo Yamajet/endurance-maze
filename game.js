@@ -54,7 +54,8 @@ function makeBoard(){
     for(let j=0;j<=steps;j++){const cx=a.x+(b.x-a.x)*j/steps,cy=a.y+(b.y-a.y)*j/steps;
       for(let y=Math.max(1,Math.floor(cy-1.4));y<=Math.min(14,Math.ceil(cy+1.4)-1);y++)for(let x=Math.max(1,Math.floor(cx-1.4));x<=Math.min(14,Math.ceil(cx+1.4)-1);x++){grid[y][x]=0;protectedCells.add(x+','+y)}}}
   const overlapsGoal=(x,y)=>x>=13&&y>=gy&&y<=gy+1;
-  const route=[],free=[];for(let y=1;y<=14;y++)for(let x=2;x<=13;x++)if(grid[y][x]===0&&!overlapsGoal(x,y))(protectedCells.has(x+','+y)?route:free).push({x:x+.5,y:y+.5});
+  const clearOfSpawn=p=>Math.hypot(p.x-2,p.y-14)>1.45&&Math.hypot(p.x-14,p.y-(gy+1))>1.45;
+  const route=[],free=[];for(let y=1;y<=14;y++)for(let x=2;x<=13;x++){const p={x:x+.5,y:y+.5};if(grid[y][x]===0&&!overlapsGoal(x,y)&&clearOfSpawn(p))(protectedCells.has(x+','+y)?route:free).push(p)}
   const coins=[];while(coins.length<4&&route.length){const p=route.splice(rand(0,route.length-1),1)[0];if(coins.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>1.3))coins.push(p)}
   const extra=free.length?free[rand(0,free.length-1)]:route.find(p=>coins.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>1));if(extra)coins.push(extra);
   function distanceToRoute(p){let best=Infinity;for(let i=1;i<waypoints.length;i++){const a=waypoints[i-1],b=waypoints[i],dx=b.x-a.x,dy=b.y-a.y,u=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy),0,1);best=Math.min(best,Math.hypot(p.x-a.x-u*dx,p.y-a.y-u*dy))}return best}
