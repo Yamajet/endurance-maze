@@ -14,7 +14,7 @@ const modes=[
   {key:'goalTiny',label:'ゴールがすげー小さくなる',mult:7},
   {key:'goalMany',label:'ゴールがだいぶ増える',mult:2},
   {key:'goalManyMove',label:'ゴールがだいぶ増えるしすげー動く',mult:2},
-  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:40},
+  {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:30},
   {key:'swap',label:'俺とゴールがたまに逆になるし、敵も動く',mult:8},
   {key:'wallEnemy',label:'壁が敵になる',mult:4},
   {key:'wallCoin',label:'壁がコインになる',mult:1},
@@ -29,13 +29,38 @@ let unlockLevel=0;try{
 }catch(e){}
 let audio=null,active=false,standby=false,holding=false,bpm=60,startBpm=60,stageNo=1,score=0,enemyMode='none',barStart=0,last=0;
 let board,nextBoard,player={x:2,y:14},target={x:2,y:14},cleared=false,beatSeen=-1,bumpAt=-1,bgmSource=null,explosionSource=null,samples={},toastTimer;
+// Add tracks to each starting-BPM pool; weights are relative probabilities.
+const bgmPools={
+  120:[
+    {sample:'legacy',weight:10,loop:false},
+    {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:50,loop:true,volume:.7},
+    {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:40,loop:true,volume:.7,clearVolume:.7}
+  ],
+  180:[
+    {sample:'legacy',weight:30,loop:false},
+    {sample:'luzernw',file:'bpm180_luzernw_loop.ogg',baseBpm:180,weight:70,loop:true,volume:.7,clearVolume:.6}
+  ]
+};
+let selectedPreset='60',runBgm=null,standbyBgmSource=null;
+const clearSources=new Set();
+function clearTrackSample(track){const match=track&&track.file&&track.file.match(/^(.*)_loop\.(?:wav|ogg)$/);return match?match[1]+'_clear':null}
+function stopClearSounds(){for(const source of clearSources){try{source.stop()}catch(e){}}clearSources.clear()}
+function playGoalSound(){const paired=runBgm&&runBgm.loop?clearTrackSample(runBgm):null,usePaired=paired&&samples[paired];const source=play(usePaired?paired:'clear',usePaired?(runBgm.clearVolume??1):1,bpm/(paired?runBgm.baseBpm:120));if(source){clearSources.add(source);source.onended=()=>clearSources.delete(source)}}
+function chooseRunBgm(){if(!bgmPools[startBpm])return null;const pool=bgmPools[startBpm].filter(track=>!track.loop||samples[track.sample]);let roll=Math.random()*pool.reduce((sum,track)=>sum+track.weight,0);for(const track of pool){roll-=track.weight;if(roll<0)return track}return pool[pool.length-1]||null}
 function mode(){return modes.find(m=>m.key===enemyMode)||modes[0]}
 function showModes(){document.querySelectorAll('[data-unlock]').forEach(label=>{label.hidden=Number(label.dataset.unlock)>unlockLevel});const selected=document.querySelector('input[name="enemyMode"]:checked');if(!selected||selected.closest('label').hidden)document.querySelector('input[name="enemyMode"][value="none"]').checked=true}
 function showToast(title,name){clearTimeout(toastTimer);el('unlockTitle').textContent=title;el('unlockName').textContent=name;el('unlockToast').hidden=false;play('unlock',.66);toastTimer=setTimeout(()=>el('unlockToast').hidden=true,5200)}
 function unlockAfterRun(){if(unlockLevel<modes.length-1){unlockLevel++;showModes();showToast('敵の封印が解除されました',modes[unlockLevel].label)}else if(unlockLevel===modes.length-1){unlockLevel=modes.length;showToast('敵の封印が全部解除されました','おつ')}try{localStorage.setItem(storageKey,String(unlockLevel))}catch(e){}}
-async function loadAudio(){for(const name of ['bgm60','bgm120','wall','coin','unlock','explosion']){try{const b=await (await fetch('assets/'+name+(name==='explosion'?'.mp3':'.wav'))).arrayBuffer();samples[name]=await audio.decodeAudioData(b)}catch(e){}}}
-function play(name,volume=1,rate=1){if(!audio||!samples[name])return;const src=audio.createBufferSource(),gain=audio.createGain();src.buffer=samples[name];src.playbackRate.value=rate;gain.gain.value=volume;src.connect(gain).connect(audio.destination);src.start();return src}
-function playBar(){const base=bpm<90?60:120;bgmSource=play('bgm'+base,.576,bpm/base)}
+async function loadAudio(){const requestedBpm=clamp(parseInt(el('customBpm').value,10)||60,30,500),tracks=(bgmPools[requestedBpm]||[]).filter(track=>track.file),files=[...['bgm60','bgm120','wall','coin','clear','unlock','explosion'].map(name=>({sample:name,file:name+(name==='explosion'?'.mp3':'.wav')})),...tracks,...tracks.filter(track=>clearTrackSample(track)).map(track=>({sample:clearTrackSample(track),file:track.file.replace(/_loop\./,'_clear.')}))];for(const track of files){if(samples[track.sample])continue;try{const response=await fetch('assets/'+track.file);if(!response.ok)continue;const b=await response.arrayBuffer();samples[track.sample]=await audio.decodeAudioData(b)}catch(e){}}}
+function play(name,volume=1,rate=1,loop=false,when){if(!audio||!samples[name])return;const src=audio.createBufferSource(),gain=audio.createGain();src.buffer=samples[name];src.playbackRate.value=rate;src.loop=loop;gain.gain.value=volume;src.connect(gain).connect(audio.destination);src.start(when===undefined?audio.currentTime:when);return src}
+async function resumeAudio(){if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();await audio.resume()}
+async function playButtonClick(){await resumeAudio();const osc=audio.createOscillator(),gain=audio.createGain(),now=audio.currentTime;osc.type='triangle';osc.frequency.setValueAtTime(1400,now);osc.frequency.exponentialRampToValueAtTime(700,now+.035);gain.gain.setValueAtTime(.18,now);gain.gain.exponentialRampToValueAtTime(.001,now+.045);osc.connect(gain).connect(audio.destination);osc.start(now);osc.stop(now+.05)}
+async function playStartSound(){await resumeAudio();if(!samples.clear){const response=await fetch('assets/clear.wav');if(response.ok)samples.clear=await audio.decodeAudioData(await response.arrayBuffer())}play('clear',1)}
+function playBar(){if(runBgm&&runBgm.loop){
+  if(standby){const base=bpm<90?60:120,stageStart=barStart+240/bpm;standbyBgmSource=play('bgm'+base,.576,bpm/base);bgmSource=play(runBgm.sample,runBgm.volume??.7,bpm/runBgm.baseBpm,true,stageStart);if(bgmSource)bgmSource.playbackRate.setValueAtTime((bpm+1)/runBgm.baseBpm,stageStart+240/bpm);return}
+  if(!bgmSource)bgmSource=play(runBgm.sample,runBgm.volume??.7,bpm/runBgm.baseBpm,true,barStart);
+  if(bgmSource){bgmSource.playbackRate.setValueAtTime(bpm/runBgm.baseBpm,barStart);bgmSource.playbackRate.setValueAtTime((bpm+1)/runBgm.baseBpm,barStart+240/bpm)}return
+}const base=bpm<90?60:120;bgmSource=play('bgm'+base,.576,bpm/base)}
 function cell(x,y){return x>=0&&x<N&&y>=0&&y<N}
 function canPlaceGoal(b,x,y){const r=.98,eps=1e-8;for(let yy=Math.floor(y-r+eps);yy<=Math.floor(y+r-eps);yy++)for(let xx=Math.floor(x-r+eps);xx<=Math.floor(x+r-eps);xx++)if(!cell(xx,yy)||b.grid[yy][xx])return false;return true}
 function makeBoard(){
@@ -128,13 +153,13 @@ function blocked(x,y,b=board){const ix=Math.floor(x),iy=Math.floor(y);return !ce
 // The player's visible body is 2 by 2; its wall/enemy collision square is central 1 by 1.
 function hitWall(x,y){const r=.5,eps=1e-8;for(let yy=Math.floor(y-r+eps);yy<=Math.floor(y+r-eps);yy++)for(let xx=Math.floor(x-r+eps);xx<=Math.floor(x+r-eps);xx++)if(!cell(xx,yy)||board.grid[yy][xx]&&(xx===0||xx===15||yy===0||yy===15||!['wallEnemy','wallMorph'].includes(enemyMode)))return true;return false}
 function touchesInteriorWall(x,y){const r=.5,eps=1e-8;for(let yy=Math.floor(y-r+eps);yy<=Math.floor(y+r-eps);yy++)for(let xx=Math.floor(x-r+eps);xx<=Math.floor(x+r-eps);xx++)if(xx>0&&xx<15&&yy>0&&yy<15&&board.grid[yy][xx])return true;return false}
-function fail(reason){if(!active)return;active=false;holding=false;if(bgmSource){try{bgmSource.stop()}catch(e){}bgmSource=null}explosionSource=play('explosion',.3);
+function fail(reason){if(!active)return;active=false;holding=false;if(bgmSource){try{bgmSource.stop()}catch(e){}bgmSource=null}if(standbyBgmSource){try{standbyBgmSource.stop()}catch(e){}standbyBgmSource=null}stopClearSounds();explosionSource=play('explosion',.3);
   el('result').textContent=`${reason} · 到達 ${stageNo}ステージ / ${score}点\n開始 BPM ${startBpm} · ${mode().label}`;
   const post=`到達ステージ：${stageNo}\nスコア：${score}点\n開始BPM：${startBpm}\n設定：${mode().label}\n\n#エンデュランス迷路\n${new URL('.',location.href).href}`;
   el('shareX').href='https://x.com/intent/post?text='+encodeURIComponent(post);el('shareBsky').href='https://bsky.app/intent/compose?text='+encodeURIComponent(post);
   el('share').classList.remove('hidden');el('start').textContent='もう一度';el('overlay').classList.remove('hidden');unlockAfterRun()}
-function scoreGoal(){if(cleared)return;cleared=true;holding=false;target={...player};const points=bpm*mode().mult;score+=points;el('score').textContent=score;el('message').textContent='CLEAR! +'+points;if(!nextBoard)nextBoard=makeBoard()}
-function wallFeedback(t){if(t-bumpAt>.14){bumpAt=t;play('wall',.27)}}
+function scoreGoal(){if(cleared)return;cleared=true;holding=false;target={...player};playGoalSound();const points=bpm*mode().mult;score+=points;el('score').textContent=score;el('message').textContent='CLEAR! +'+points;if(!nextBoard)nextBoard=makeBoard()}
+function wallFeedback(t){if(t-bumpAt>.14){bumpAt=t;play('wall',1.5)}}
 function enemyPos(e,t,b=board){if(!['moving','swell','fast','swap','coinEnemy'].includes(enemyMode))return {x:e.x,y:e.y};const amp=enemyMode==='fast'?1.44:.36,frequency=enemyMode==='fast'?5.6:2.8,v=Math.sin(t*frequency+e.phase)*amp,x=e.x+(e.axis==='x'?v:0),y=e.y+(e.axis==='y'?v:0);return enemyMode==='fast'||!blocked(x,y,b)?{x,y}:{x:e.x,y:e.y}}
 function enemyRadius(e,t){return e.coin ? .34 : enemyMode==='small' ? .5 : enemyMode==='swell' ? 1+.25*(1-Math.cos(TAU*t/.8)) : 1}
 function goalPos(goal,t,b){if(!['goalManyMove','goalTwenty'].includes(enemyMode))return goal;const v=Math.sin(t*5.6+goal.phase)*.72,x=goal.x+(goal.axis==='x'?v:0),y=goal.y+(goal.axis==='y'?v:0);return canPlaceGoal(b,x,y)?{x,y}:goal}
@@ -171,8 +196,8 @@ function update(dt,t){if(!active)return;let elapsed=t-barStart,bar=240/bpm,beat=
       if(!hitWall(player.x+dx,player.y))player.x+=dx;else wallFeedback(t);
       if(!hitWall(player.x,player.y+dy))player.y+=dy;else wallFeedback(t);
       if(enemyMode==='wallEnemy'&&touchesInteriorWall(player.x,player.y)){fail('壁の敵に当たった');return}}}
-  for(const coin of board.coins)if(!coin.taken&&Math.abs(player.x-coin.x)<1.1&&Math.abs(player.y-coin.y)<1.1){coin.taken=true;score+=30*mode().mult;el('score').textContent=score;play('coin',.66)}
-  for(const form of board.wallForms)if(!form.taken&&Math.abs(player.x-form.x)<1&&Math.abs(player.y-form.y)<1){if(form.kind==='enemy'){fail('壁の敵に当たった');return}form.taken=true;score+=30*mode().mult;el('score').textContent=score;play('coin',.66)}
+  for(const coin of board.coins)if(!coin.taken&&Math.abs(player.x-coin.x)<1.1&&Math.abs(player.y-coin.y)<1.1){coin.taken=true;score+=30*mode().mult;el('score').textContent=score;play('coin',1.5)}
+  for(const form of board.wallForms)if(!form.taken&&Math.abs(player.x-form.x)<1&&Math.abs(player.y-form.y)<1){if(form.kind==='enemy'){fail('壁の敵に当たった');return}form.taken=true;score+=30*mode().mult;el('score').textContent=score;play('coin',1.5)}
   for(const e of board.enemies){const p=enemyPos(e,t),r=enemyRadius(e,t);if(Math.hypot(clamp(p.x,player.x-.5,player.x+.5)-p.x,clamp(p.y,player.y-.5,player.y+.5)-p.y)<r){fail('敵に当たった');return}}
   if(!cleared){let lastTouched=null,remaining=board.goals.filter(goal=>!goal.taken).length;for(const goal of board.goals)if(!goal.taken){const pos=goalPos(goal,t,board);if(goalTouched(pos,remaining===1)){goal.taken=true;remaining--;lastTouched={goal,pos};el('message').textContent=`GOAL ${board.goals.filter(x=>x.taken).length}/${board.goals.length}`}}
     if(board.goals.every(goal=>goal.taken)){if(lastTouched){lastTouched.goal.keepVisible=true;lastTouched.goal.fixedPos={...lastTouched.pos}}scoreGoal()}}
@@ -199,10 +224,11 @@ function render(t){const elapsed=active?t-barStart:0,beat=60/bpm,phase=elapsed%b
 function frame(ms){const t=audio?audio.currentTime:ms/1000,dt=Math.min(.05,Math.max(0,t-last));last=t;update(dt,t);render(t)}
 function point(ev){const r=c.getBoundingClientRect();return {x:clamp((ev.clientX-r.left)/r.width*16,2,14),y:clamp((ev.clientY-r.top)/r.height*16,2,14)}}
 c.addEventListener('pointerdown',ev=>{if(!active||standby||cleared)return;ev.preventDefault();c.setPointerCapture(ev.pointerId);holding=true;target=point(ev)});c.addEventListener('pointermove',ev=>{if(holding&&!cleared)target=point(ev)});for(const event of ['pointerup','pointercancel','lostpointercapture'])c.addEventListener(event,()=>holding=false);
-for(const b of document.querySelectorAll('[data-bpm]'))b.addEventListener('click',()=>{el('customBpm').value=b.dataset.bpm;selectPreset()});
-function selectPreset(){document.querySelectorAll('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===el('customBpm').value))}el('customBpm').addEventListener('input',selectPreset);selectPreset();showModes();
-el('start').addEventListener('click',async()=>{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();await audio.resume();if(!samples.bgm60)await loadAudio();if(explosionSource){try{explosionSource.stop()}catch(e){}explosionSource=null}
+for(const b of document.querySelectorAll('[data-bpm]'))b.addEventListener('click',()=>{selectedPreset=b.dataset.bpm;el('customBpm').value=b.dataset.bpm;selectPreset();playButtonClick().catch(()=>{})});
+function selectPreset(){document.querySelectorAll('[data-bpm]').forEach(b=>b.classList.toggle('selected',b.dataset.bpm===selectedPreset))}el('customBpm').addEventListener('input',()=>{selectedPreset=null;selectPreset()});selectPreset();showModes();
+el('start').addEventListener('click',async()=>{el('start').disabled=true;try{await playStartSound();await loadAudio()}finally{el('start').disabled=false}if(explosionSource){try{explosionSource.stop()}catch(e){}explosionSource=null}
   bpm=clamp(parseInt(el('customBpm').value,10)||60,30,500);enemyMode=document.querySelector('input[name="enemyMode"]:checked').value;el('customBpm').value=bpm;startBpm=bpm;stageNo=0;score=0;
+  if(bgmSource){try{bgmSource.stop()}catch(e){}bgmSource=null}if(standbyBgmSource){try{standbyBgmSource.stop()}catch(e){}standbyBgmSource=null}stopClearSounds();runBgm=chooseRunBgm();
   board=makeBoard();nextBoard=null;player={...board.spawn};target={...player};active=true;standby=true;cleared=false;holding=false;beatSeen=-1;barStart=audio.currentTime;last=barStart;
   el('bpm').textContent=bpm;el('stage').textContent=stageNo;el('score').textContent=0;el('result').textContent='';el('message').textContent='スタンバイ';el('share').classList.add('hidden');el('overlay').classList.add('hidden');el('unlockToast').hidden=true;playBar()});
 board=makeBoard();requestAnimationFrame(frame);
