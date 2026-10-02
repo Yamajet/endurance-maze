@@ -32,15 +32,19 @@ let board,nextBoard,player={x:2,y:14},target={x:2,y:14},cleared=false,beatSeen=-
 // Add tracks to each starting-BPM pool; weights are relative probabilities.
 const bgmPools={
   120:[
-    {sample:'legacy',weight:10,loop:false},
-    {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:35,loop:true,volume:.7},
-    {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:25,loop:true,volume:.7,clearVolume:.7},
-    {sample:'rallyhouse',file:'bpm120_rallyhouse_loop.ogg',baseBpm:120,weight:30,loop:true,volume:.525,clearVolume:.7}
+    {sample:'legacy',weight:25,loop:false},
+    {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:15,loop:true,volume:0.700000,clearVolume:1},
+    {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:15,loop:true,volume:0.700000,clearVolume:.7},
+    {sample:'funkybaby',file:'bpm120_funkybaby_loop.ogg',baseBpm:120,weight:15,loop:true,volume:0.613901,clearVolume:.7},
+    {sample:'rallyhouse',file:'bpm120_rallyhouse_loop.ogg',baseBpm:120,weight:15,loop:true,volume:0.525000,clearVolume:.7},
+    {sample:'sunburnedman',file:'bpm120_sunburnedman_loop.ogg',baseBpm:120,weight:15,loop:true,volume:0.700000,clearVolume:.7},
   ],
   180:[
-    {sample:'legacy',weight:30,loop:false},
-    {sample:'luzernw',file:'bpm180_luzernw_loop.ogg',baseBpm:180,weight:70,loop:true,volume:.7,clearVolume:.6}
-  ]
+    {sample:'legacy',weight:25,loop:false},
+    {sample:'considernumbers3',file:'bpm180_considernumbers3_loop.ogg',baseBpm:180,weight:20,loop:true,volume:0.700000,clearVolume:.7},
+    {sample:'luzernw',file:'bpm180_luzernw_loop.ogg',baseBpm:180,weight:35,loop:true,volume:0.568327,clearVolume:.6},
+    {sample:'superluminalgirl',file:'bpm180_superluminalgirl_loop.ogg',baseBpm:180,weight:20,loop:true,volume:0.700000,clearVolume:.7},
+  ],
 };
 let selectedPreset='60',runBgm=null,standbyBgmSource=null;
 const clearSources=new Set();
@@ -156,7 +160,7 @@ function hitWall(x,y){const r=.5,eps=1e-8;for(let yy=Math.floor(y-r+eps);yy<=Mat
 function touchesInteriorWall(x,y){const r=.5,eps=1e-8;for(let yy=Math.floor(y-r+eps);yy<=Math.floor(y+r-eps);yy++)for(let xx=Math.floor(x-r+eps);xx<=Math.floor(x+r-eps);xx++)if(xx>0&&xx<15&&yy>0&&yy<15&&board.grid[yy][xx])return true;return false}
 function fail(reason){if(!active)return;active=false;holding=false;if(bgmSource){try{bgmSource.stop()}catch(e){}bgmSource=null}if(standbyBgmSource){try{standbyBgmSource.stop()}catch(e){}standbyBgmSource=null}stopClearSounds();explosionSource=play('explosion',.3);
   el('result').textContent=`${reason} · 到達 ${stageNo}ステージ / ${score}点\n開始 BPM ${startBpm} · ${mode().label}`;
-  const post=`到達ステージ：${stageNo}\nスコア：${score}点\n開始BPM：${startBpm}\n設定：${mode().label}\n\n#エンデュランス迷路\n${new URL('.',location.href).href}`;
+  const post=`到達ステージ：${stageNo}\nスコア：${score}点\n開始BPM：${startBpm}\n設定：${mode().label}\n\n#俺をゴールへ\n${new URL('.',location.href).href}`;
   el('shareX').href='https://x.com/intent/post?text='+encodeURIComponent(post);el('shareBsky').href='https://bsky.app/intent/compose?text='+encodeURIComponent(post);
   el('share').classList.remove('hidden');el('start').textContent='もう一度';el('overlay').classList.remove('hidden');unlockAfterRun()}
 function scoreGoal(){if(cleared)return;cleared=true;holding=false;target={...player};playGoalSound();const points=bpm*mode().mult;score+=points;el('score').textContent=score;el('message').textContent='CLEAR! +'+points;if(!nextBoard)nextBoard=makeBoard()}
