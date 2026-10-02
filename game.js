@@ -17,8 +17,8 @@ const modes=[
   {key:'goalTwenty',label:'ゴールがマジで増えるしすげー動く',mult:30},
   {key:'swap',label:'俺とゴールがたまに逆になるし、敵も動く',mult:8},
   {key:'wallEnemy',label:'壁が敵になる',mult:4},
-  {key:'wallCoin',label:'壁がコインになる',mult:1},
-  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:15},
+  {key:'wallCoin',label:'壁がコインになる',mult:.5},
+  {key:'wallMorph',label:'壁がコインになったり敵になったりする',mult:25},
   {key:'coinEnemy',label:'コインも敵になるし動く',mult:50}
 ];
 const storageKey='endurance-maze-unlocks-v2';
@@ -35,7 +35,7 @@ const bgmPools={
     {sample:'legacy',weight:10,loop:false},
     {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:35,loop:true,volume:.7},
     {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:25,loop:true,volume:.7,clearVolume:.7},
-    {sample:'rallyhouse',file:'bpm120_rallyhouse_loop.ogg',baseBpm:120,weight:30,loop:true,volume:.7,clearVolume:.7}
+    {sample:'rallyhouse',file:'bpm120_rallyhouse_loop.ogg',baseBpm:120,weight:30,loop:true,volume:.525,clearVolume:.7}
   ],
   180:[
     {sample:'legacy',weight:30,loop:false},
