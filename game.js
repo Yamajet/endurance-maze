@@ -33,8 +33,9 @@ let board,nextBoard,player={x:2,y:14},target={x:2,y:14},cleared=false,beatSeen=-
 const bgmPools={
   120:[
     {sample:'legacy',weight:10,loop:false},
-    {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:50,loop:true,volume:.7},
-    {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:40,loop:true,volume:.7,clearVolume:.7}
+    {sample:'bossahouse',file:'bpm120_bossahouse_loop.ogg',baseBpm:120,weight:35,loop:true,volume:.7},
+    {sample:'funk',file:'bpm120_funk_loop.ogg',baseBpm:120,weight:25,loop:true,volume:.7,clearVolume:.7},
+    {sample:'rallyhouse',file:'bpm120_rallyhouse_loop.ogg',baseBpm:120,weight:30,loop:true,volume:.7,clearVolume:.7}
   ],
   180:[
     {sample:'legacy',weight:30,loop:false},
